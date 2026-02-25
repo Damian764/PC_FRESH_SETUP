@@ -39,21 +39,27 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 
 # 4. Loop through the array and install apps
-
 foreach ($App in $AppsToInstall) {
     Write-Host "Checking/Installing: $App..." -ForegroundColor Cyan
-    # --accept-package-agreements: Skips the license prompt
-    # --accept-source-agreements: Skips the source trust prompt
-    # --silent: Runs the installer without UI windows
-    winget install --id $App --accept-package-agreements --accept-source-agreements
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Successfully installed $App" -ForegroundColor Green
+    
+    # Check if the app is already installed
+    $isInstalled = winget list --id $App -e --accept-source-agreements
+    
+    if ($isInstalled -match $App) {
+        Write-Host "$App is already installed. Checking for updates..." -ForegroundColor Yellow
+        # Optional: Try to upgrade instead of install
+        winget upgrade --id $App --accept-package-agreements --accept-source-agreements --silent
+    } else {
+        # Perform fresh installation
+        winget install --id $App --accept-package-agreements --accept-source-agreements --silent
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Successfully installed $App" -ForegroundColor Green
+        } else {
+            Write-Warning "Failed to install $App. Exit Code: $LASTEXITCODE"
+        }
     }
-    else {
-        Write-Warning "Failed to install $App or it is already installed."
-    }
-    Write-Host "------------"
+    Write-Host "--------------------"
 }
 
 Write-Host "`n--- Installation Process Complete! ---" -ForegroundColor Green
