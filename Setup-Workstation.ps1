@@ -20,6 +20,7 @@ if (-not(
 $AppsToInstall = @(
     "Microsoft.VCRedist.2015+.x64",
     "Google.Chrome",
+    "Mozilla.Firefox.pl",
     "Microsoft.VisualStudioCode",
     "RARLab.WinRAR",
     "Resolume.Arena",
