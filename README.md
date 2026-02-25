@@ -65,13 +65,9 @@ To prevent interruptions during critical tasks, the script applies the following
 
 
 | Power Setting | Plugged In (AC) | On Battery (DC) |
-
 | :--- | :--- | :--- |
-
 | **Screen Off** | Never (0 min) | 30 Minutes |
-
 | **Sleep** | Never (0 min) | 60 Minutes |
-
 | **Hibernate** | Disabled | Disabled |
 
 
