@@ -15,7 +15,7 @@ Open **PowerShell as Administrator** and run:
 
 ```powershell
 
-irm [https://is.gd/damiansetup](https://is.gd/damiansetup) | iex
+irm https://is.gd/damiansetup | iex
 
 ```
 
