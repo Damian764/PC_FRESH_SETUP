@@ -25,6 +25,8 @@ $AppsToInstall = @(
     "RARLab.WinRAR",
     "Resolume.Arena",
     "Microsoft.Office",
+    "Microsoft.PowerToys",
+    "Microsoft.PowerShell",
     "Adobe.Acrobat.Reader.64-bit",
     "BitFocus.Companion",
     "KeePassXCTeam.KeePassXC"
