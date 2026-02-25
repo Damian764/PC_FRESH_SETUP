@@ -119,7 +119,15 @@ $DebloaterChoice = Read-Host "Do you want to run Windows Debloater? [y] Yes | [n
 
 if ($DebloaterChoice.ToLower() -eq 'y' -or $DebloaterChoice.ToLower() -eq 'yes') {
     Write-Host "Running Windows Debloater..." -ForegroundColor Magenta
-    ([scriptblock]::Create((irm "https://debloat.raphi.re/")))
+    try {
+        iwr -useb "https://debloat.raphi.re/" | iex
+    } catch {
+        Write-Warning "Error downloading Windows Debloater"
+    }
+} else {
+    Write-Host "Skipping Debloater." -ForegroundColor Gray
 }
+
+Write-Host "`n--- Setup finished! ---" -ForegroundColor Green
 
 Pause
