@@ -120,8 +120,31 @@ $results | Format-Table -Property Name, Setting, PluggedIn, OnBattery -AutoSize
 
 Write-Host "`n--- Power settings applied successfully! ---" -ForegroundColor Green
 
+#5 Disable All System Sounds
+Write-Host "Configuring System Sounds: Setting to 'No Sounds'..." -ForegroundColor Cyan
 
-#5 Debloater
+# Define the path to the user's sound schemes in the registry
+$SoundPath = "HKCU:\AppEvents\Schemes\Apps\.Default"
+
+# Get all subkeys (individual sound events like 'Notification', 'SystemHand', etc.)
+$SoundEvents = Get-ChildItem -Path $SoundPath
+
+foreach ($EventSound in $SoundEvents) {
+    $CurrentPath = "$($EventSound.PSPath)\.Current"
+    
+    # Check if the .Current subkey exists for this event
+    if (Test-Path $CurrentPath) {
+        # Set the sound file path to an empty string to silence the event
+        Set-ItemProperty -Path $CurrentPath -Name "(Default)" -Value ""
+    }
+}
+
+# Change the active scheme name to ".None" (No Sounds)
+Set-ItemProperty -Path "HKCU:\AppEvents\Schemes" -Name "(Default)" -Value ".None"
+
+Write-Host "System sounds have been disabled." -ForegroundColor Green
+
+#6 Debloater
 
 $DebloaterChoice = Read-Host "Do you want to run Windows Debloater? [y] Yes | [n] No"
 
