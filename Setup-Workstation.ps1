@@ -40,14 +40,24 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 
 # 4. Loop through the array and install apps
 foreach ($App in $AppsToInstall) {
-    Write-Host "Checking/Installing: $App..." -ForegroundColor Cyan
+    Write-Host "Checking: $App..." -ForegroundColor Cyan
 
-    $isInstalled = winget list --id $App -e --accept-source-agreements
+    # Capture the list output for the specific ID
+    $listResult = winget list --id $App -e --accept-source-agreements 2>$null
 
-    if ($isInstalled -match $App) {
-        Write-Host "$App is already installed. Checking for updates..." -ForegroundColor Yellow
+    if ($listResult -match $App) {
+        # Extract the version using Regex from the WinGet table output
+        # This looks for the version string which usually follows the ID in the table
+        $currentVersion = ($listResult | Select-String -Pattern "$App\s+([^\s]+)").Matches.Groups[1].Value
+        
+        if ([string]::IsNullOrWhiteSpace($currentVersion)) { $currentVersion = "Unknown" }
+
+        Write-Host "[Installed] $App (Version: $currentVersion)" -ForegroundColor Yellow
+        Write-Host "Checking for updates..." -ForegroundColor Gray
+        
         winget upgrade --id $App --accept-package-agreements --accept-source-agreements --silent
     } else {
+        Write-Host "[Missing] $App. Starting fresh installation..." -ForegroundColor Magenta
         winget install --id $App --accept-package-agreements --accept-source-agreements --silent
 
         if ($LASTEXITCODE -eq 0) {
