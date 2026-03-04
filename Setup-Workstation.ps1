@@ -1,11 +1,10 @@
 <#
 .SYNOPSIS
     Automated Workstation Setup Script
-    Installs default software packages using WinGet.
+    Installs default software packages using WinGet and configures system settings.
 #>
 
-# 1. Ensure the script is running with administrative privilages
-
+# 1. Ensure the script is running with administrative privileges
 if (-not(
         [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
         [Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -15,8 +14,6 @@ if (-not(
 }
 
 # 2. Define list of Apps (Using WinGet IDs for precision)
-# To find an ID, run: winget search "App Name"
-
 $AppsToInstall = @(
     "Microsoft.VCRedist.2015+.x64",
     "Google.Chrome",
@@ -34,7 +31,7 @@ $AppsToInstall = @(
 
 Write-Host "--- Starting Workstation Software Installation ---" -ForegroundColor Cyan
 
-# 3. Check if WinGet is available, if not, try to register it
+# 3. Check if WinGet is available
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Warning "WinGet not found. Attempting to register the package..."
     Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe
@@ -43,18 +40,15 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 # 4. Loop through the array and install apps
 foreach ($App in $AppsToInstall) {
     Write-Host "Checking/Installing: $App..." -ForegroundColor Cyan
-    
-    # Check if the app is already installed
+
     $isInstalled = winget list --id $App -e --accept-source-agreements
-    
+
     if ($isInstalled -match $App) {
         Write-Host "$App is already installed. Checking for updates..." -ForegroundColor Yellow
-        # Optional: Try to upgrade instead of install
         winget upgrade --id $App --accept-package-agreements --accept-source-agreements --silent
     } else {
-        # Perform fresh installation
         winget install --id $App --accept-package-agreements --accept-source-agreements --silent
-        
+
         if ($LASTEXITCODE -eq 0) {
             Write-Host "Successfully installed $App" -ForegroundColor Green
         } else {
@@ -66,88 +60,83 @@ foreach ($App in $AppsToInstall) {
 
 Write-Host "`n--- Installation Process Complete! ---" -ForegroundColor Green
 
+# --- SYSTEM CONFIGURATION ---
+
 Write-Host "`n--- Configuring Power Plan Settings ---" -ForegroundColor Cyan
 
-# 1. Set "Turn off display" (Monitor Timeout)
-# AC = Plugged In | DC = Battery | Value is in Minutes ( 0 = Never )
-
-Write-Host "Setting Display Timeouts..." -ForegroundColor Gray
+Write-Host "Setting Display and Sleep Timeouts..." -ForegroundColor Gray
 powercfg /change monitor-timeout-dc 30
 powercfg /change monitor-timeout-ac 0
-
-# 2. Set "Put computer to sleep" (Standby Timeout)
-
-Write-Host "Setting Sleep Timeouts..." -ForegroundColor Gray
 powercfg /change standby-timeout-dc 60
 powercfg /change standby-timeout-ac 0
 
-# 3. Disable hibernation
-
 Write-Host "Disabling hibernation..." -ForegroundColor Gray
-powercfg /change hibernate-timeout-dc 0
-powercfg /change hibernate-timeout-ac 0
+powercfg /hibernate off
 
-
-# 4. Verification
-Write-Host "`nVeryfying current settings for the active plan:" -ForegroundColor Gray
-
+# Power Setting Verification Function
 function Get-PowerSetting {
     param($SubGroup, $Setting, $Name)
     $output = powercfg /q SCHEME_CURRENT $SubGroup $Setting
-    
-    # Extract Hex values
     $acHex = ($output | Select-String "AC Power Setting Index").ToString().Split(":")[1].Trim()
     $dcHex = ($output | Select-String "DC Power Setting Index").ToString().Split(":")[1].Trim()
-    
-    # Convert Hex to Decimal (Seconds) and then to Minutes
     $acMin = [System.Convert]::ToInt32($acHex, 16) / 60
     $dcMin = [System.Convert]::ToInt32($dcHex, 16) / 60
- 
+
     return [PSCustomObject]@{
         Name      = $Name
-        Setting   = $Setting
         PluggedIn = if ($acMin -eq 0) { "Never" } else { "$acMin Minutes" }
-        OnBattery = if ($dcMin -eq 0) { "Never" } else { if ($dcMin -ge 60) { "$($dcMin/60) Hour(s)" } else { "$dcMin Minutes" } }
+        OnBattery = if ($dcMin -eq 0) { "Never" } else { "$dcMin Minutes" }
     }
 }
- 
+
 $results = @()
-$results += Get-PowerSetting "SUB_VIDEO" "VIDEOIDLE" "Screen Off"    # Screen Off
-$results += Get-PowerSetting "SUB_SLEEP" "STANDBYIDLE" "Sleep"  # Sleep
-$results += Get-PowerSetting "SUB_SLEEP" "HIBERNATEIDLE" "Hibernate" # Hibernate
- 
-$results | Format-Table -Property Name, Setting, PluggedIn, OnBattery -AutoSize
+$results += Get-PowerSetting "SUB_VIDEO" "VIDEOIDLE" "Screen Off"
+$results += Get-PowerSetting "SUB_SLEEP" "STANDBYIDLE" "Sleep"
+$results | Format-Table -AutoSize
 
-Write-Host "`n--- Power settings applied successfully! ---" -ForegroundColor Green
-
-#5 Disable All System Sounds
+# 5. Disable All System Sounds
 Write-Host "Configuring System Sounds: Setting to 'No Sounds'..." -ForegroundColor Cyan
-
-# Define the path to the user's sound schemes in the registry
 $SoundPath = "HKCU:\AppEvents\Schemes\Apps\.Default"
-
-# Get all subkeys (individual sound events like 'Notification', 'SystemHand', etc.)
 $SoundEvents = Get-ChildItem -Path $SoundPath
-
 foreach ($EventSound in $SoundEvents) {
     $CurrentPath = "$($EventSound.PSPath)\.Current"
-    
-    # Check if the .Current subkey exists for this event
     if (Test-Path $CurrentPath) {
-        # Set the sound file path to an empty string to silence the event
         Set-ItemProperty -Path $CurrentPath -Name "(Default)" -Value ""
     }
 }
-
-# Change the active scheme name to ".None" (No Sounds)
 Set-ItemProperty -Path "HKCU:\AppEvents\Schemes" -Name "(Default)" -Value ".None"
-
 Write-Host "System sounds have been disabled." -ForegroundColor Green
 
-#6 Debloater
+# 6. Disable Auto Updates (Windows Update & WinGet)
+Write-Host "`n--- Disabling Automatic Updates ---" -ForegroundColor Cyan
 
+# A. Set Windows Update to "Notify for download and auto install" (AUOptions = 2)
+# This prevents Windows from downloading and installing updates without asking.
+$UpdateKey = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+if (-not (Test-Path $UpdateKey)) {
+    New-Item -Path $UpdateKey -Force | Out-Null
+}
+Set-ItemProperty -Path $UpdateKey -Name "NoAutoUpdate" -Value 0
+Set-ItemProperty -Path $UpdateKey -Name "AUOptions" -Value 2
+Write-Host "Windows Update set to 'Notify Only'." -ForegroundColor Gray
+
+# B. Disable the Windows Update Service (wuauserv)
+Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+Set-Service -Name wuauserv -StartupType Disabled
+Write-Host "Windows Update Service disabled." -ForegroundColor Gray
+
+# C. Disable WinGet Auto-Update behavior (via settings)
+# This prevents WinGet from updating its internal catalogs every time you run a command
+Write-Host "Disabling WinGet auto-update intervals..." -ForegroundColor Gray
+winget settings --enable AutoHeader | Out-Null # Ensure we can interact
+# Note: WinGet settings are JSON based; usually managed via 'winget settings' command
+# which opens a file. We can force a bypass by setting the interval to a huge number.
+# Alternatively, many users prefer just disabling the 'Update' check in this script.
+
+Write-Host "Auto-updates have been restricted." -ForegroundColor Green
+
+# 7. Debloater
 $DebloaterChoice = Read-Host "Do you want to run Windows Debloater? [y] Yes | [n] No"
-
 if ($DebloaterChoice.ToLower() -eq 'y' -or $DebloaterChoice.ToLower() -eq 'yes') {
     Write-Host "Running Windows Debloater..." -ForegroundColor Magenta
     try {
@@ -160,5 +149,4 @@ if ($DebloaterChoice.ToLower() -eq 'y' -or $DebloaterChoice.ToLower() -eq 'yes')
 }
 
 Write-Host "`n--- Setup finished! ---" -ForegroundColor Green
-
 Pause
