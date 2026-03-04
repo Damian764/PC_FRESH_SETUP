@@ -26,7 +26,8 @@ $AppsToInstall = @(
     "Microsoft.PowerShell",
     "Adobe.Acrobat.Reader.64-bit",
     "BitFocus.Companion",
-    "KeePassXCTeam.KeePassXC"
+    "KeePassXCTeam.KeePassXC",
+    "VideoLAN.VLC"
 )
 
 Write-Host "--- Starting Workstation Software Installation ---" -ForegroundColor Cyan
