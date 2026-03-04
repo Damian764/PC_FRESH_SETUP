@@ -4,6 +4,10 @@
     Installs default software packages using WinGet and configures system settings.
 #>
 
+# --- SCRIPT METADATA ---
+$ScriptVersion = "1.2.0"
+$ScriptDescription = "Automated environment provisioning: Apps, Power, Sounds, and Update Management."
+
 # 1. Ensure the script is running with administrative privileges
 if (-not(
         [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -12,6 +16,14 @@ if (-not(
     Pause
     Exit
 }
+
+# Clear the screen and show Header
+Clear-Host
+Write-Host "==========================================================" -ForegroundColor Gray
+Write-Host " WORKSTATION SETUP SCRIPT " -ForegroundColor White -BackgroundColor DarkBlue
+Write-Host " Version: $ScriptVersion" -ForegroundColor Cyan
+Write-Host " Description: $ScriptDescription" -ForegroundColor Gray
+Write-Host "==========================================================`n" -ForegroundColor Gray
 
 # 2. Define list of Apps (Using WinGet IDs for precision)
 $AppsToInstall = @(
