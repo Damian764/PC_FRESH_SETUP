@@ -58,6 +58,8 @@ The script uses `winget` (Windows Package Manager) to silently install or update
 
 * KeePassXC
 
+* VLC Media Player
+
 
 ### 2. Power Plan Configuration
 
