@@ -69,7 +69,7 @@ foreach ($App in $AppsToInstall) {
         
         winget upgrade --id $App --accept-package-agreements --accept-source-agreements --silent
     } else {
-        Write-Host "[Missing] $App. Starting fresh installation..." -ForegroundColor Magenta
+        Write-Host "[Missing] $App. Starting fresh installation..." -ForegroundColor Yellow
         winget install --id $App --accept-package-agreements --accept-source-agreements --silent
 
         if ($LASTEXITCODE -eq 0) {
