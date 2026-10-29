@@ -1,160 +1,100 @@
 # Automated Workstation Setup Script
 
+A modular, interactive PowerShell script to quickly provision and configure a fresh Windows workstation—tailored especially for live production, AV control, and power-user performance.
 
-This PowerShell script streamlines the process of provisioning a new Windows workstation. It automatically checks for administrative privileges, installs essential software packages, configures optimal power and sleep settings, and offers an optional Windows debloat.
+The script runs interactively with confirmation prompts for each phase, allowing you to accept defaults or skip steps and individual applications as you see fit.
 
+---
 
 ## 🚀 Quick Start
 
-
-You can execute this script directly from the web using a single command. 
-
-
-Open **PowerShell as Administrator** and run:
-
+Run the script directly via PowerShell with Administrator privileges:
 
 ```powershell
-
 irm https://is.gd/damiansetup | iex
-
 ```
 
-
-*Note: `irm` (Invoke-RestMethod) securely fetches the raw script, and `iex` (Invoke-Expression) runs it immediately.*
-
+> **Note:** `irm` (*Invoke-RestMethod*) fetches the raw script, and `iex` (*Invoke-Expression*) executes it in your current session.
 
 ---
 
+## ⚙️ Features & Steps
 
-## ⚙️ Features
+### 1. Interactive Software Installation (WinGet)
+The script uses the Windows Package Manager (`winget`) to install or update packages silently. It verifies WinGet presence (installing it if missing) and **prompts you for each application**, so you only install what you need.
 
+### 2. Power & Sleep Optimizations
+Prevents unexpected shutdowns, sleep modes, or display blanks during mission-critical tasks or live performances:
 
-### 1. Automated Software Installation
-
-The script uses `winget` (Windows Package Manager) to silently install or update the following core applications. If `winget` is missing, the script will attempt to register it automatically.
-
-
-* Microsoft Visual C++ Redistributable (2015+)
-
-* Google Chrome
-
-* Mozilla Firefox (PL)
-
-* Visual Studio Code
-
-* WinRAR
-
-* Resolume Arena
-
-* Microsoft Office
-
-* Microsoft PowerToys
-
-* Microsoft PowerShell
-
-* Adobe Acrobat Reader (64-bit)
-
-* BitFocus Companion
-
-* KeePassXC
-
-* VLC Media Player
-
-
-### 2. Power Plan Configuration
-
-To prevent interruptions during critical tasks, the script applies the following timeouts to your active power plan:
-
-
-| Power Setting | Plugged In (AC) | On Battery (DC) |
+| Setting | Plugged In (AC) | On Battery (DC) |
 | :--- | :--- | :--- |
 | **Screen Off** | Never (0 min) | 30 Minutes |
 | **Sleep** | Never (0 min) | 60 Minutes |
-| **Hibernate** | Disabled | Disabled |
+| **Hibernation** | Disabled | Disabled |
 
+*The script prints a summary table at the end of the step to verify the active power plan.*
 
-*The script runs a verification check at the end to confirm these settings were applied successfully.*
+### 3. System Sounds Disabled
+Sets the active Windows sound scheme to **"No Sounds"** and mutes system event cues—preventing stray notification chimes and dings from routing through live audio interfaces (e.g., MOTU/Dante/USB).
 
+### 4. Controlled Updates
+Avoids background reboots and unexpected bandwidth spikes during active workstation use:
+* Sets Windows Update policy to **Notify for download and auto install** (`AUOptions = 2`).
+* Disables the automatic background Windows Update service (`wuauserv`).
+* Restricts automatic WinGet repository update checks.
 
-### 3. Optional Windows Debloat
-
-Before finishing, the script will prompt you with the option to run [Raphi's Windows Debloater](https://debloat.raphi.re/). 
-
-* Press `y` or `yes` to run the debloat utility.
-
-* Press `n` to skip this step entirely.
-
+### 5. Optional Windows Debloater
+Prompts whether to execute [Raphi's Windows Debloater](https://debloat.raphi.re/) to strip telemetry and unwanted pre-installed Windows consumer bloatware. Defaults to `No` (`[y/N]`) for safety.
 
 ---
 
+## 🎮 How the Prompts Work
 
-## ✏️ Customizing the Script
+Every step utilizes an interactive prompt with smart defaults:
+* **`[Y/n]`**: Pressing Enter defaults to **Yes**.
+* **`[y/N]`**: Pressing Enter defaults to **No** (used for potentially disruptive actions like the external debloater).
+* You can explicitly type `y`, `yes`, `n`, or `no` (case-insensitive).
 
+---
 
-If you want to add your own software to the installation list, you just need to find the correct `winget` ID and add it to the array.
+## ✏️ Customizing the Application List
 
+If you fork or download the script, you can easily add or remove software in the `$AppsToInstall` array:
 
-1. Open PowerShell and search for the app:
-
+1. Search for the package ID using WinGet:
    ```powershell
-
    winget search "App Name"
-
    ```
-
-2. Find the exact string under the **Id** column (e.g., `VideoLAN.VLC`).
-
-3. Open the script file and add the ID to the `$AppsToInstall` list, making sure to include quotes and a comma:
-
+2. Copy the exact value from the **Id** column.
+3. Add or remove entries in the `$AppsToInstall` array inside the script:
    ```powershell
-
    $AppsToInstall = @(
-
-       "Microsoft.VCRedist.2015+.x64",
-
        "Google.Chrome",
-
-       "VideoLAN.VLC" # <-- Add your custom app here
-
+       "VideoLAN.VLC",
+       "OBSProject.OBSStudio"  # <-- Your custom app here
    )
-
    ```
-
 
 ---
-
 
 ## 📋 Prerequisites
 
-
-* **OS:** Windows 10 or Windows 11.
-
-* **Permissions:** Must be run with **Administrator privileges**. The script will halt and warn you if it is run as a standard user.
-
-* **Network:** An active internet connection is required to fetch software packages and the optional debloat script.
-
+* **Operating System:** Windows 10 or Windows 11.
+* **Privileges:** Administrator privileges are required (the script self-checks and exits if unprivileged).
+* **Network:** Active internet connection to fetch packages and winget sources.
 
 ---
 
+## 🛠️ Running Locally
 
-## 🛠️ Running Locally (Alternative)
+If you prefer to clone or download the file instead of running it via the web link:
 
-
-If you prefer to download the file and run it locally instead of using the web link:
-
-
-1. Download the script file to your computer.
-
-2. Open **PowerShell as Administrator**.
-
-3. Navigate to the directory containing the downloaded file.
-
-4. Execute the script:
-
+1. Open **PowerShell as Administrator**.
+2. If script execution is restricted on your machine, temporarily bypass it:
    ```powershell
-
-   .\setup-script.ps1
-
+   Set-ExecutionPolicy Bypass -Scope Process -Force
    ```
-
-   *(If you encounter execution policy restrictions, temporarily bypass them by running: `Set-ExecutionPolicy Bypass -Scope Process -Force` first).*
+3. Run the script:
+   ```powershell
+   .\setup-script.ps1
+   ```
