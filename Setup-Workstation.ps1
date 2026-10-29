@@ -55,7 +55,10 @@ $AppsToInstall = @(
     "Adobe.Acrobat.Reader.64-bit",
     "BitFocus.Companion",
     "KeePassXCTeam.KeePassXC",
-    "VideoLAN.VLC"
+    "VideoLAN.VLC",
+    "MOTU.MSeries",
+    "LocalSend.LocalSend",
+    "Devolutions.UniGetUI"
 )
 
 # --- SOFTWARE INSTALLATION STEP ---
