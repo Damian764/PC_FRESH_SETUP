@@ -5,7 +5,7 @@
 #>
 
 # --- SCRIPT METADATA ---
-$ScriptVersion = "1.3.0"
+$ScriptVersion = "1.4.0"
 $ScriptDescription = "Automated environment provisioning: Apps, Power, Sounds, and Update Management."
 
 # Helper function for user confirmations
@@ -58,6 +58,7 @@ $AppsToInstall = @(
     "VideoLAN.VLC",
     "MOTU.MSeries",
     "LocalSend.LocalSend",
+    "NDI.NDITools",
     "Devolutions.UniGetUI"
 )
 
