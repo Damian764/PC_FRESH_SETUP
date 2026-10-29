@@ -5,8 +5,8 @@
 #>
 
 # --- SCRIPT METADATA ---
-$ScriptVersion = "1.4.0"
-$ScriptDescription = "Automated environment provisioning: Apps, Power, Sounds, and Update Management."
+$ScriptVersion = "1.6.0"
+$ScriptDescription = "Automated environment provisioning: Apps, Power, Sounds, Visual Effects, Registry Backup, and Update Management."
 
 # Helper function for user confirmations
 function Confirm-Action {
@@ -111,8 +111,49 @@ if (Confirm-Action "`n[STEP 1] Do you want to process software installations/upd
     Write-Host "Skipping software installation.`n" -ForegroundColor DarkGray
 }
 
+# --- REGISTRY & SYSTEM BACKUP STEP ---
+if (Confirm-Action "[STEP 2] Create a Registry Backup before applying system modifications?") {
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $backupFolder = Join-Path -Path $env:USERPROFILE -ChildPath "Desktop\RegistryBackups_$timestamp"
+
+    if (-not (Test-Path $backupFolder)) {
+        New-Item -Path $backupFolder -ItemType Directory -Force | Out-Null
+    }
+
+    Write-Host "Backing up affected registry branches to: $backupFolder" -ForegroundColor Cyan
+
+    # Export registry keys that this script modifies
+    $keysToBackup = @{
+        "HKCU_AppEvents"        = "HKEY_CURRENT_USER\AppEvents\Schemes"
+        "HKCU_WindowMetrics"    = "HKEY_CURRENT_USER\Control Panel\Desktop\WindowMetrics"
+        "HKCU_Desktop"          = "HKEY_CURRENT_USER\Control Panel\Desktop"
+        "HKCU_ExplorerAdvanced" = "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+        "HKCU_DWM"              = "HKEY_CURRENT_USER\Software\Microsoft\Windows\DWM"
+        "HKLM_WindowsUpdate"    = "HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate"
+    }
+
+    foreach ($name in $keysToBackup.Keys) {
+        $regPath = $keysToBackup[$name]
+        $outFile = Join-Path $backupFolder "$name.reg"
+        Start-Process reg.exe -ArgumentList "export `"$regPath`" `"$outFile`" /y" -Wait -WindowStyle Hidden 2>$null
+    }
+
+    # Optional: Attempt to create a Windows System Restore Point
+    try {
+        Enable-ComputerRestore -Drive "$env:SystemDrive" -ErrorAction SilentlyContinue
+        Checkpoint-Computer -Description "Pre-WorkstationSetup_$timestamp" -RestorePointType "MODIFY_SETTINGS" -ErrorAction Stop
+        Write-Host "System Restore Point created successfully." -ForegroundColor Green
+    } catch {
+        Write-Host "System Restore Point could not be created (System Protection may be disabled). Registry files were saved." -ForegroundColor Yellow
+    }
+
+    Write-Host "Registry backup complete.`n" -ForegroundColor Green
+} else {
+    Write-Host "Skipping registry backup.`n" -ForegroundColor DarkGray
+}
+
 # --- POWER SETTINGS STEP ---
-if (Confirm-Action "[STEP 2] Configure Power Plan settings (timeouts and disable hibernation)?") {
+if (Confirm-Action "[STEP 3] Configure Power Plan settings (timeouts and disable hibernation)?") {
     Write-Host "Setting Display and Sleep Timeouts..." -ForegroundColor Gray
     powercfg /change monitor-timeout-dc 30
     powercfg /change monitor-timeout-ac 0
@@ -131,7 +172,7 @@ if (Confirm-Action "[STEP 2] Configure Power Plan settings (timeouts and disable
         $acMin = [System.Convert]::ToInt32($acHex, 16) / 60
         $dcMin = [System.Convert]::ToInt32($dcHex, 16) / 60
 
-        return [PSResourceObject]@{
+        return [PSCustomObject]@{
             Name      = $Name
             PluggedIn = if ($acMin -eq 0) { "Never" } else { "$acMin Minutes" }
             OnBattery = if ($dcMin -eq 0) { "Never" } else { "$dcMin Minutes" }
@@ -148,7 +189,7 @@ if (Confirm-Action "[STEP 2] Configure Power Plan settings (timeouts and disable
 }
 
 # --- SYSTEM SOUNDS STEP ---
-if (Confirm-Action "[STEP 3] Disable all Windows system sounds (set scheme to 'No Sounds')?") {
+if (Confirm-Action "[STEP 4] Disable all Windows system sounds (set scheme to 'No Sounds')?") {
     Write-Host "Configuring System Sounds..." -ForegroundColor Gray
     $SoundPath = "HKCU:\AppEvents\Schemes\Apps\.Default"
     $SoundEvents = Get-ChildItem -Path $SoundPath
@@ -165,7 +206,7 @@ if (Confirm-Action "[STEP 3] Disable all Windows system sounds (set scheme to 'N
 }
 
 # --- DISABLE AUTO UPDATES STEP ---
-if (Confirm-Action "[STEP 4] Disable Automatic Updates (Windows Update & WinGet)?") {
+if (Confirm-Action "[STEP 5] Disable Automatic Updates (Windows Update & WinGet)?") {
     # A. Set Windows Update to "Notify for download and auto install" (AUOptions = 2)
     $UpdateKey = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
     if (-not (Test-Path $UpdateKey)) {
@@ -189,8 +230,38 @@ if (Confirm-Action "[STEP 4] Disable Automatic Updates (Windows Update & WinGet)
     Write-Host "Skipping auto-update restrictions.`n" -ForegroundColor DarkGray
 }
 
+# --- VISUAL EFFECTS & WINDOW BEHAVIOR STEP ---
+if (Confirm-Action "[STEP 6] Apply visual effects (disable window zoom, disable taskbar peek, keep taskbar animations)?") {
+    Write-Host "Configuring Visual Effects..." -ForegroundColor Gray
+
+    # 1. Animate windows when minimizing and maximizing -> OFF
+    $MetricsPath = "HKCU:\Control Panel\Desktop\WindowMetrics"
+    Set-ItemProperty -Path $MetricsPath -Name "MinAnimate" -Value "0" -Type String
+
+    # 2. Enable Peek (Aero Peek / Taskbar Live Preview) -> OFF
+    $AdvancedPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+    Set-ItemProperty -Path $AdvancedPath -Name "DisablePreviewWindow" -Value 1 -Type DWord
+    Set-ItemProperty -Path $AdvancedPath -Name "DisablePreviewDesktop" -Value 1 -Type DWord
+
+    $DwmPath = "HKCU:\Software\Microsoft\Windows\DWM"
+    if (-not (Test-Path $DwmPath)) { New-Item -Path $DwmPath -Force | Out-Null }
+    Set-ItemProperty -Path $DwmPath -Name "EnableAeroPeek" -Value 0 -Type DWord
+
+    # 3. Taskbar Animations -> ON (matches custom performance configuration)
+    Set-ItemProperty -Path $AdvancedPath -Name "TaskbarAnimations" -Value 1 -Type DWord
+
+    # 4. Prevent windows shrinking/minimizing when external monitors are connected/disconnected
+    $DesktopPath = "HKCU:\Control Panel\Desktop"
+    Set-ItemProperty -Path $DesktopPath -Name "MonitorRemovalRecalcBehavior" -Value 1 -Type DWord
+    Set-ItemProperty -Path $DesktopPath -Name "RestorePreviousStateRecalcBehavior" -Value 0 -Type DWord
+
+    Write-Host "Visual effects updated.`n" -ForegroundColor Green
+} else {
+    Write-Host "Skipping visual effects and window behavior adjustments.`n" -ForegroundColor DarkGray
+}
+
 # --- DEBLOATER STEP ---
-if (Confirm-Action "[STEP 5] Do you want to run the Windows Debloater script?" -DefaultYes $false) {
+if (Confirm-Action "[STEP 7] Do you want to run the Windows Debloater script?" -DefaultYes $false) {
     Write-Host "Running Windows Debloater..." -ForegroundColor Magenta
     try {
         iwr -useb "https://debloat.raphi.re/" | iex
